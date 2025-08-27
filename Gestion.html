@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sistema de Gestión de Empleados ASEUTP</title>
+
+  <!-- Tailwind -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"/>
+
+  <!-- jQuery + DataTables -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <link href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css" rel="stylesheet">
+  <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+
+  <!-- SheetJS para Excel -->
+  <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+
+  <!-- FileSaver (para exportar JSON si lo prefieres) -->
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+
+  <style>
+    /* Afinados menores para DataTables + Tailwind */
+    table.dataTable thead th, table.dataTable tbody td { padding: .75rem .75rem; }
+    .dt-length, .dt-search, .dt-info, .dt-paging { margin: .25rem .5rem; }
+    .truncate-1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .badge { display:inline-flex; align-items:center; gap:.25rem; padding:.125rem .375rem; border-radius:.375rem; font-size:.75rem; }
+    .badge-green { background:#e6f9ef; color:#0e7a3d; }
+    .badge-orange { background:#fff3e6; color:#b45309; }
+    .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:.5rem; padding:.5rem .75rem; font-weight:600; }
+    .btn-primary { background:#2563eb; color:#fff; }
+    .btn-primary:hover { background:#1e40af; }
+    .btn-amber { background:#f59e0b; color:#fff; }
+    .btn-amber:hover { background:#d97706; }
+    .btn-green { background:#10b981; color:#fff; }
+    .btn-green:hover { background:#059669; }
+    .btn-ghost { background:transparent; color:#b45309; }
+    .btn-ghost:hover { color:#92400e; }
+    .btn-danger { background:#ef4444; color:#fff; }
+    .btn-danger:hover { background:#dc2626; }
+    .btn-light { background:#f3f4f6; color:#111827; }
+    .btn-light:hover { background:#e5e7eb; }
+    .chip { background:#f3f4f6; border-radius:9999px; padding:.25rem .5rem; font-size:.75rem; }
+    .scroll-soft::-webkit-scrollbar{height:8px;width:8px}
+    .scroll-soft::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:8px}
+    .scroll-soft::-webkit-scrollbar-track{background:transparent}
+    /* Checkbox fallback de "No soy un robot" */
+    .fake-captcha { display:flex; align-items:center; gap:.5rem; border:1px solid #d1d5db; border-radius:.5rem; padding:.5rem .75rem;}
+  </style>
+</head>
+<body class="bg-gray-100 text-gray-900">
+
+  <!-- ===================== AUTH ===================== -->
+  <section id="auth-root" class="min-h-screen flex items-center justify-center px-4 bg-white">
+  <div class="w-full max-w-2xl space-y-6 text-center">
+    <!-- Imagen institucional -->
+    <img class="w-full object-contain rounded" alt="Cabecera institucional"
+         src="cabecera.png">
+
+
+      <!-- Panel derecho: contenedor de vistas -->
+      <div class="flex flex-wrap justify-center gap-3">
+        <!-- NAV de vistas -->
+        <nav class="flex gap-2 mb-6">
+          <button id="tab-login" class="chip" onclick="AuthUI.show('login')">Iniciar sesión</button>
+          <button id="tab-change" class="chip" onclick="AuthUI.show('change')">Cambiar contraseña</button>
+          <button id="tab-recovery" class="chip" onclick="AuthUI.show('recovery')">Olvidé mi contraseña</button>
+          <span class="flex-1"></span>
+          <label class="btn btn-light cursor-pointer">
+  					<input id="import-data-json" type="file" class="hidden" accept=".json">
+ 	 						<i class="fa-solid fa-file-import"></i> Importar datos
+					</label>
+          <button id="export-users-btn" class="btn btn-light hidden"><i class="fa-solid fa-file-export"></i> Exportar usuarios</button>
+        </nav>
+        
+
+
+        <!-- LOGIN -->
+        <div id="view-login" class="space-y-4 hidden">
+          <h2 class="text-2xl font-bold text-blue-700">Iniciar Sesión</h2>
+          <div>
+            <label class="block text-sm font-medium">Correo</label>
+            <input id="login_email" type="email" class="w-full p-2 border rounded" placeholder="correo@ejemplo.com"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium">Contraseña</label>
+            <div class="relative">
+              <input id="login_password" type="password" class="w-full p-2 border rounded pr-10" placeholder="********"/>
+              <button type="button" class="absolute right-3 top-2 text-gray-500" onclick="togglePassword('login_password','login_eye')">
+                <i id="login_eye" class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+          </div>
+          <div class="text-right">
+            <button class="text-sm text-blue-600 hover:underline" onclick="AuthUI.show('recovery')">¿Olvidaste tu contraseña?</button>
+          </div>
+          <div class="flex gap-2 items-center">
+            <button class="btn btn-primary" onclick="Auth.login()"><i class="fa-solid fa-right-to-bracket"></i> Ingresar</button>
+          </div>
+          <div class="text-xs text-gray-500">
+          <p>Tip: Usa <span class="font-semibold">Exportar usuarios</span> para llevarte las cuentas a otro PC, y <span class="font-semibold">Importar usuarios</span> para cargarlas.</p>
+        </div>
+        </div>
+
+
+        <!-- RECOVERY -->
+        <div id="view-recovery" class="space-y-4 hidden">
+          <h2 class="text-2xl font-bold text-amber-700">Recuperar Contraseña</h2>
+          <div>
+            <label class="block text-sm font-medium">Correo registrado</label>
+            <input id="recover_email" type="email" class="w-full p-2 border rounded" placeholder="correo@ejemplo.com"/>
+          </div>
+          <div class="flex gap-2 items-center">
+            <button class="btn btn-amber" onclick="Auth.recover()"><i class="fa-solid fa-key"></i> Mostrar contraseña</button>
+            <button class="btn btn-light" onclick="AuthUI.show('login')"><i class="fa-solid fa-arrow-left"></i> Volver al inicio</button>
+          </div>
+          <p class="text-xs text-gray-500">Sin servidor no podemos enviar emails/SMS, por eso se muestra la contraseña directamente si existe ese correo.</p>
+        </div>
+      </div>
+      
+      <!-- CHANGE PASSWORD -->
+<div id="view-change" class="space-y-4 hidden">
+  <h2 class="text-2xl font-bold text-green-700">Cambiar Contraseña</h2>
+  <div>
+    <label class="block text-sm font-medium">Correo</label>
+    <input id="change_email" type="email" class="w-full p-2 border rounded" placeholder="correo@ejemplo.com"/>
+  </div>
+  <div>
+    <label class="block text-sm font-medium">Nueva Contraseña</label>
+    <input id="change_new" type="password" class="w-full p-2 border rounded" placeholder="********"/>
+  </div>
+  <div>
+    <label class="block text-sm font-medium">Confirmar Contraseña</label>
+    <input id="change_confirm" type="password" class="w-full p-2 border rounded" placeholder="********"/>
+  </div>
+  <div class="flex gap-2 items-center">
+    <button class="btn btn-green" onclick="Auth.changePassword()"><i class="fa-solid fa-unlock-keyhole"></i> Guardar cambio</button>
+    <button class="btn btn-light" onclick="AuthUI.show('login')"><i class="fa-solid fa-arrow-left"></i> Volver</button>
+  </div>
+</div>
+
+      
+    </div>
+  </section>
+
+  <!-- ===================== DASHBOARD ===================== -->
+  <section id="dashboard" class="hidden min-h-screen">
+    <!-- Header -->
+    <header class="bg-[#F6A400] text-white shadow-lg">
+      <div class="container mx-auto px-4 py-6">
+        <div class="mb-4 text-center">
+          <img class="w-full object-contain" alt="Cabecera institucional" referrerpolicy="origin-when-cross-origin"
+               src="cabecera.png">
+        </div>
+
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-users text-3xl"></i>
+            <h1 class="text-2xl font-bold">Gestión de Empleados</h1>
+          </div>
+
+          <div class="relative group">
+            <button id="user-menu" class="flex items-center gap-3">
+              <img id="user-photo" src="" alt="Foto perfil" class="rounded-full border-2 border-white w-10 h-10 object-cover">
+              <span id="user-email" class="hidden md:inline">Administrador</span>
+            </button>
+            <div class="absolute right-0 mt-2 w-56 bg-white text-gray-800 rounded shadow-lg hidden group-hover:block z-50">
+              <div class="px-4 py-2 border-b">
+                <div class="font-semibold text-sm">Sesión</div>
+                <div id="user-email-menu" class="text-xs text-gray-500 truncate-1"></div>
+              </div>
+              <button onclick="Auth.logout()" class="block w-full text-left px-4 py-2 hover:bg-gray-100">
+                <i class="fa-solid fa-right-from-bracket mr-2"></i> Cerrar sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main -->
+    <main class="container mx-auto px-4 py-8">
+      <!-- Carga de archivos -->
+      <section class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Cargar Bases de Datos</h2>
+        <div class="border-2 border-dashed border-gray-300 rounded-lg p-6">
+          <div class="text-center">
+            <i class="fa-solid fa-file-excel text-5xl text-green-600 mb-3"></i>
+            <p class="text-gray-600">Arrastra y suelta tus archivos Excel/CSV aquí o haz clic para seleccionar</p>
+          </div>
+          <input id="file-input" type="file" class="hidden" accept=".xlsx,.xls,.csv" multiple>
+          <div class="mt-4 flex justify-center gap-2">
+            <label for="file-input" class="btn btn-amber cursor-pointer"><i class="fa-solid fa-folder-open"></i> Seleccionar archivos</label>
+            <button id="btn-process" class="btn btn-green"><i class="fa-solid fa-gears"></i> Procesar</button>
+            <button id="btn-clear-files" class="btn btn-ghost"><i class="fa-regular fa-trash-can"></i> Limpiar</button>
+          </div>
+
+          <!-- Lista de archivos -->
+          <ul id="file-list" class="mt-4 text-sm grid gap-2"></ul>
+        </div>
+      </section>
+
+      <!-- Filtros -->
+      <section class="bg-white rounded-lg shadow-md p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Filtrar</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
+          <div>
+            <label class="block text-sm font-medium mb-1" for="filter-company">Empresa</label>
+            <select id="filter-company" class="w-full px-3 py-2 border rounded">
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1" for="filter-position">Cargo</label>
+            <select id="filter-position" class="w-full px-3 py-2 border rounded">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1" for="filter-dept">Departamento</label>
+            <select id="filter-dept" class="w-full px-3 py-2 border rounded">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1" for="filter-sector">Sector</label>
+            <select id="filter-sector" class="w-full px-3 py-2 border rounded">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1" for="filter-city">Ciudad</label>
+            <select id="filter-city" class="w-full px-3 py-2 border rounded">
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1" for="filter-faculty">Facultad</label>
+            <select id="filter-faculty" class="w-full px-3 py-2 border rounded">
+              <option value="">Todas</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1" for="filter-search">Búsqueda</label>
+            <div class="relative">
+              <input id="filter-search" type="text" class="w-full px-3 py-2 border rounded pl-10" placeholder="Nombre, cédula, correo...">
+              <i class="fa-solid fa-search absolute left-3 top-3 text-gray-400"></i>
+            </div>
+          </div>
+          <div class="flex items-end gap-3">
+            <button id="btn-apply-filters" class="btn btn-amber"><i class="fa-solid fa-filter"></i> Aplicar filtros</button>
+            <button id="btn-clear-filters" class="btn btn-ghost"><i class="fa-regular fa-circle-xmark"></i> Limpiar filtros</button>
+            <span class="text-xs text-gray-500">La búsqueda es insensible a mayúsculas/acentos.</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tabla -->
+      <section class="bg-white rounded-lg shadow-md">
+        <div class="flex items-center justify-between p-4">
+          <div class="flex items-center gap-2">
+            <span class="badge badge-green"><i class="fa-solid fa-check"></i> Datos unificados</span>
+            <span id="stats-records" class="text-sm text-gray-500">0 registros</span>
+          </div>
+          <div class="flex gap-2">
+            <button id="btn-export" class="btn btn-green"><i class="fa-solid fa-file-export"></i> Exportar Excel</button>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto scroll-soft">
+          <table id="employees-table" class="display w-full"></table>
+        </div>
+      </section>
+    </main>
+  </section>
+
+  <!-- =============== MODALES (opcional futuro) =============== -->
+  <!-- (No requeridos por ahora; todo se maneja por archivos) -->
+
+  <script>
+/* =========================================================
+ * UTILIDADES GENERALES
+ * =======================================================*/
+const Utils = (() => {
+  const removeDiacritics = (str) => (str ?? '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu,'')
+    .replace(/[’'`´]/g,'')
+    .trim();
+
+  const norm = (str) => removeDiacritics(String(str ?? '').toLowerCase());
+
+  const normCity = (str) => {
+    const v = norm(str);
+    // Diccionario específico (puedes ampliarlo)
+    const map = {
+      'dosquebradas':'dosquebradas',
+      'dos que bradas':'dosquebradas',
+      'bogota':'bogotá',
+      'bogota d c':'bogotá',
+      'bogota dc':'bogotá',
+      'bogotá':'bogotá',
+      'medellin':'medellín',
+      'manizales':'manizales',
+      'pereira':'pereira',
+      'cali':'cali'
+    };
+    if (map[v]) return map[v];
+    // Capitalizar por defecto
+    return capitalizeWords(removeDiacritics(String(str ?? '')).toLowerCase());
+  };
+
+  const capitalizeWords = (s) =>
+    (s ?? '').toLowerCase().split(/\s+/).map(w => w ? (w[0].toUpperCase()+w.slice(1)) : '').join(' ');
+
+  const stringToColor = (str) => {
+    let hash = 0;
+    for (let i=0;i<str.length;i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    const color = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+    return ('00000'.substring(0,6-color.length) + color);
+  };
+
+  const sleep = (ms) => new Promise(res=>setTimeout(res,ms));
+
+  const downloadJSON = (obj, filename) => {
+    const blob = new Blob([JSON.stringify(obj, null, 2)], {type: "application/json;charset=utf-8"});
+    saveAs(blob, filename);
+  };
+
+  const pick = (obj, keys) => {
+    const out = {};
+    keys.forEach(k => out[k] = obj[k]);
+    return out;
+  };
+
+  const uniqueBy = (arr, keyFn) => {
+    const seen = new Set();
+    const out = [];
+    for (const x of arr) {
+      const k = keyFn(x);
+      if (!seen.has(k)) {
+        seen.add(k);
+        out.push(x);
+      }
+    }
+    return out;
+  };
+
+  return { removeDiacritics, norm, normCity, capitalizeWords, stringToColor, sleep, downloadJSON, pick, uniqueBy };
+})();
+
+/* =========================================================
+ * ALMACÉN DE USUARIOS (sin servidor)
+ * - Guarda usuarios en localStorage
+ * - Permite exportar/importar usuarios.json para mover a otro PC
+ * =======================================================*/
+const UserStore = (() => {
+  const LS_KEY = 'aseutp_users_v1';
+  const read = () => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY) || '{"users":{}}'); }
+    catch { return {users:{}}; }
+  };
+  const write = (data) => localStorage.setItem(LS_KEY, JSON.stringify(data));
+
+  const getUser = (email) => read().users[email] || null;
+  const setUser = (email, record) => {
+    const db = read();
+    db.users[email] = record;
+    write(db);
+  };
+  const hasUser = (email) => !!getUser(email);
+  const verify = (email, password) => {
+    const u = getUser(email);
+    return !!u && u.password === password;
+  };
+  const exportJSON = () => read();
+  const importJSON = (obj) => {
+    if (!obj || typeof obj !== 'object' || !obj.users) throw new Error('Formato de usuarios inválido');
+    const db = read();
+    db.users = { ...db.users, ...obj.users }; // merge
+    write(db);
+  };
+  const all = () => Object.keys(read().users);
+
+  return { getUser, setUser, hasUser, verify, exportJSON, importJSON, all };
+})();
+
+/* =========================================================
+ * UI de Autenticación
+ * =======================================================*/
+const AuthUI = (() => {
+  const views = {
+    login: document.getElementById('view-login'),
+    recovery: document.getElementById('view-recovery'),
+    change: document.getElementById('view-change'), // nuevo
+  };
+  const tabs = {
+    login: document.getElementById('tab-login'),
+    recovery: document.getElementById('tab-recovery'),
+    change: document.getElementById('tab-change'), // nuevo
+  };
+
+  const show = (name) => {
+    Object.values(views).forEach(v => v.classList.add('hidden'));
+    Object.values(tabs).forEach(t => t.classList.remove('bg-gray-200'));
+    views[name].classList.remove('hidden');
+    tabs[name].classList.add('bg-gray-200');
+  };
+
+  const checkRecaptchaAvailability = () => {
+    // Si Google reCAPTCHA no cargó, mostramos fallback
+    const real = document.getElementById('recaptcha-real');
+    const fake = document.getElementById('recaptcha-fallback');
+    // Esperamos un tick para ver si window.grecaptcha existe
+    setTimeout(() => {
+      if (!window.grecaptcha) {
+        real.classList.add('hidden');
+        fake.classList.remove('hidden');
+      }
+    }, 1000);
+  };
+
+  return { show, checkRecaptchaAvailability };
+})();
+
+/* =========================================================
+ * LÓGICA de Autenticación
+ * =======================================================*/
+const Auth = (() => {
+  const authRoot = document.getElementById('auth-root');
+  const dash = document.getElementById('dashboard');
+
+  const login = () => {
+    const email = document.getElementById('login_email').value.trim().toLowerCase();
+    const pwd = document.getElementById('login_password').value;
+
+    if (!email || !pwd) return alert('Completa tu correo y contraseña.');
+    if (!UserStore.verify(email, pwd)) return alert('Correo o contraseña incorrectos.');
+
+    // inicio de sesión
+    sessionStorage.setItem('aseutp_current', email);
+    onLogin(email);
+  };
+  
+  const changePassword = () => {
+  const email = document.getElementById('change_email').value.trim().toLowerCase();
+  const newPwd = document.getElementById('change_new').value;
+  const confirmPwd = document.getElementById('change_confirm').value;
+
+  if (!email || !newPwd || !confirmPwd) return alert('Completa todos los campos.');
+  if (newPwd !== confirmPwd) return alert('Las contraseñas no coinciden.');
+  if (!UserStore.hasUser(email)) return alert('Este correo no está registrado.');
+
+  const user = UserStore.getUser(email);
+  user.password = newPwd;
+  UserStore.setUser(email, user);
+  alert('Contraseña actualizada exitosamente.');
+  AuthUI.show('login');
+};
+
+
+  const onLogin = (email) => {
+    alert('Acceso exitoso.');
+    authRoot.classList.add('hidden');
+    dash.classList.remove('hidden');
+
+    const username = email.split('@')[0];
+    document.getElementById('user-email').textContent = username;
+    document.getElementById('user-email-menu').textContent = email;
+    const bg = Utils.stringToColor(username);
+    const initials = username.split(/[.\-_]/).map(x => x[0]?.toUpperCase() || '').join('').slice(0,2) || 'U';
+    document.getElementById('user-photo').src = `https://placehold.co/80x80/${bg}/FFFFFF?text=${initials}`;
+
+    // Inicializa el dashboard
+    App.initTable();
+  };
+
+  const logout = () => {
+    if (confirm('¿Deseas cerrar sesión?')) {
+      sessionStorage.removeItem('aseutp_current');
+      dash.classList.add('hidden');
+      authRoot.classList.remove('hidden');
+      AuthUI.show('login');
+      // Limpia campos
+      document.getElementById('login_email').value = '';
+      document.getElementById('login_password').value = '';
+    }
+  };
+
+  const register = () => {
+    const email = document.getElementById('reg_email').value.trim().toLowerCase();
+    const pwd = document.getElementById('reg_password').value;
+
+    if (!email || !pwd) return alert('Completa correo y contraseña.');
+
+    // reCAPTCHA: si existe grecaptcha, pedimos el token; si no, usar checkbox fallback
+    let okCaptcha = false;
+    if (window.grecaptcha && grecaptcha.getResponse) {
+      const token = grecaptcha.getResponse();
+      okCaptcha = !!token;
+      if (!okCaptcha) return alert('Completa el reCAPTCHA.');
+    } else {
+      okCaptcha = document.getElementById('fake-captcha').checked;
+      if (!okCaptcha) return alert('Marca "No soy un robot".');
+    }
+
+    if (UserStore.hasUser(email)) return alert('Este correo ya está registrado.');
+
+    UserStore.setUser(email, { email, password: pwd, createdAt: new Date().toISOString() });
+    alert('Registro exitoso');
+
+    // Resetea reCAPTCHA si existe
+    if (window.grecaptcha && grecaptcha.reset) try { grecaptcha.reset(); } catch {}
+
+    AuthUI.show('login');
+  };
+
+  const recover = () => {
+    const email = document.getElementById('recover_email').value.trim().toLowerCase();
+    if (!email) return alert('Ingresa tu correo.');
+    const u = UserStore.getUser(email);
+    if (!u) return alert('Este correo no está registrado.');
+    alert(`Tu contraseña es: ${u.password}`);
+  };
+
+  return { login, logout, register, recover, changePassword, onLogin };
+
+})();
+
+/* =========================================================
+ * PROCESAMIENTO DE ARCHIVOS / TABLAS
+ * - Lee múltiples CSV/XLSX
+ * - Lee TODAS las hojas de cada XLSX
+ * - Unifica columnas mediante vocabulario/sinónimos
+ * - Devuelve una tabla estándar
+ *  (Incluye parser CSV robusto y manejo de errores por hoja/archivo)
+ * =======================================================*/
+const DataProc = (() => {
+
+  // Vocabulario de columnas → claves estándar
+  const vocab = {
+    company: [
+      'empresa', 'compañia', 'compañía', 'compania', 'organizacion', 'organización', 'institucion',
+      'institución', 'nombre de la institucion', 'nombre de la institución', 'nombre de la empresa',
+      'empresa y/o institucion', 'empresa y/o institución', 'nombre de la institución y/o empresa',
+      'institucion/empresa', 'institución/empresa', 'entidad'
+    ],
+    full_name: [
+      'nombre completo', 'nombre y apellido', 'empleado', 'nombre del empleador', 'nombre',
+      'nombres y apellidos', 'apellidos y nombres', 'nombre y apellidos'
+    ],
+    first_name: ['nombres', 'primer nombre', 'nombre1', 'nombre'],
+    last_name:  ['apellidos', 'segundo nombre', 'apellido', 'apellido1', 'apellido2'],
+    address:    ['direccion', 'dirección', 'dir', 'domicilio', 'dirección de la empresa'],
+    phone:      ['telefono', 'teléfono', 'celular', 'movil', 'móvil', 'numero de celular', 'número de celular', 'whatsapp', 'teléfono tutor escenario práctica', 'teléfono o número de celular'],
+    email:      ['correo', 'correo electronico', 'correo electrónico', 'email', 'mail', 'correo tutor escenario práctica', 'correo electrónico de la empresa'],
+    city:       ['ciudad', 'municipio', 'localidad', 'poblacion', 'población'],
+    dept:       ['departamento', 'depto', 'area', 'área'],
+    sector:     ['sector', 'industria', 'rubro'],
+    position:   ['cargo', 'puesto', 'rol', 'ocupacion', 'ocupación'],
+    faculty:    ['facultad', 'escuela'],
+    id_number:  ['cedula', 'cédula', 'dni', 'documento', 'documento de identidad', 'id', 'identificacion', 'identificación'],
+  };
+
+  // Columnas objetivo visibles
+  const TARGET = ['company','full_name','address','phone','email','city','position','sector','dept','faculty','id_number'];
+
+  // Mapeo rápido: sinónimos normalizados → clave estándar
+  const synonymToKey = (() => {
+    const map = {};
+    const add = (key, arr) => arr.forEach(a => map[Utils.norm(a)] = key);
+    for (const [std, list] of Object.entries(vocab)) add(std, list);
+    for (const std of Object.keys(vocab)) map[Utils.norm(std)] = std; // aceptar clave estándar
+    return map;
+  })();
+
+  const toStandardKey = (col) => {
+    const n = Utils.norm(col);
+    if (n.includes('institucion') || n.includes('institución')) return 'company';
+    if (n.includes('empresa')) return 'company';
+    if (n === 'nombre' || n.startsWith('nombre ')) return 'first_name';
+    if (synonymToKey[n]) return synonymToKey[n];
+    return null;
+  };
+
+  const fuseFullName = (row) => {
+    if (!row.full_name) {
+      const fn = row.first_name || '';
+      const ln = row.last_name || '';
+      const full = [fn, ln].filter(Boolean).join(' ').trim();
+      row.full_name = full || '';
+    }
+    row.full_name = Utils.capitalizeWords(row.full_name);
+  };
+
+  const normalizeCity = (row) => {
+    if (row.city) row.city = Utils.normCity(row.city);
+  };
+
+  const standardizeRow = (raw) => {
+    const std = {};
+    for (const [col, val] of Object.entries(raw)) {
+      const key = toStandardKey(col) || null;
+      if (!key) continue;
+      if (std[key]) continue;
+      std[key] = (val ?? '').toString().trim();
+    }
+
+    if (std.first_name && !std.last_name && !std.full_name) {
+      if (std.first_name.split(' ').length > 2) {
+        std.full_name = std.first_name;
+        delete std.first_name;
+      }
+    }
+
+    fuseFullName(std);
+    normalizeCity(std);
+
+    for (const k of TARGET) if (!std.hasOwnProperty(k)) std[k] = '';
+    return Utils.pick(std, TARGET);
+  };
+
+  // --------- CSV ROBUSTO (RFC-like, autodetección de delimitador) ----------
+  const parseCSV = (text) => {
+    const candidates = [',',';','\t','|'];
+    let bestDelim = ',', bestScore = -1;
+    for (const d of candidates) {
+      const sample = text.split('\n', 50).join('\n');
+      const score = (sample.match(new RegExp('\\' + d, 'g')) || []).length;
+      if (score > bestScore) { bestScore = score; bestDelim = d; }
+    }
+
+    const rows = [];
+    let i = 0, field = '', row = [], inQuotes = false;
+    const n = text.length;
+
+    const pushField = () => { row.push(field); field = ''; };
+    const pushRow = () => { rows.push(row); row = []; };
+
+    while (i < n) {
+      const c = text[i];
+
+      if (inQuotes) {
+        if (c === '"') {
+          if (i + 1 < n && text[i + 1] === '"') { field += '"'; i += 2; continue; } // "" → "
+          inQuotes = false; i++; continue;
+        }
+        field += c; i++; continue;
+      }
+
+      if (c === '"') { inQuotes = true; i++; continue; }
+      if (c === '\r') { i++; continue; }
+      if (c === '\n') { pushField(); pushRow(); i++; continue; }
+      if (c === bestDelim) { pushField(); i++; continue; }
+
+      field += c; i++;
+    }
+    // último campo/fila
+    pushField();
+    if (row.length > 1 || row[0] !== '') pushRow();
+
+    if (!rows.length) return [];
+
+    const headers = rows[0].map(h => (h ?? '').toString().trim());
+    const data = [];
+    for (let r = 1; r < rows.length; r++) {
+      const obj = {};
+      for (let c = 0; c < headers.length; c++) {
+        obj[headers[c]] = (rows[r][c] ?? '').toString();
+      }
+      if (Object.values(obj).some(v => (v ?? '').toString().trim() !== '')) data.push(obj);
+    }
+    return data;
+  };
+
+  // --------- LECTOR DE ARCHIVO con manejo de errores por archivo/hoja ----------
+  const readFile = async (file) => {
+    const buf = await file.arrayBuffer();
+    const name = file.name.toLowerCase();
+    const out = [];
+
+    try {
+      if (name.endsWith('.csv')) {
+        const text = new TextDecoder('utf-8').decode(new Uint8Array(buf));
+        out.push(...parseCSV(text));
+      } else {
+        const wb = XLSX.read(buf, { type: 'array' });
+        if (!wb.SheetNames || wb.SheetNames.length === 0) return out; // libro sin hojas
+        for (const sheetName of wb.SheetNames) {
+          try {
+            const ws = wb.Sheets[sheetName];
+            if (!ws) continue;
+            const json = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+            json.forEach(row => {
+              if (Object.values(row).some(v => (v ?? '').toString().trim() !== '')) out.push(row);
+            });
+          } catch (errSheet) {
+            console.warn(`Hoja con error (${sheetName}) en ${file.name}:`, errSheet);
+            // continuamos con otras hojas
+          }
+        }
+      }
+    } catch (errFile) {
+      const e = new Error(`Error leyendo "${file.name}": ${errFile.message || errFile}`);
+      e._file = file.name;
+      throw e;
+    }
+
+    return out;
+  };
+
+  // Procesa múltiples archivos y retorna registros estandarizados y unificados
+  const processFiles = async (files, onProgress) => {
+    const allRowsRaw = [];
+    let done = 0;
+
+    for (const file of files) {
+      const rows = await readFile(file);
+      for (const r of rows) {
+        const std = standardizeRow(r);
+        const hasAny = Object.values(std).some(v => (v ?? '').toString().trim() !== '');
+        if (hasAny) allRowsRaw.push(std);
+      }
+      done++;
+      onProgress?.(done, files.length, file.name);
+      await Utils.sleep(10);
+    }
+
+    // Deduplicar por (email || phone || id_number) + full_name
+    const deduped = Utils.uniqueBy(allRowsRaw, r =>
+      [Utils.norm(r.full_name), Utils.norm(r.email || r.phone || r.id_number || '')].join('|')
+    );
+
+    return deduped;
+  };
+
+  return { processFiles, TARGET };
+})();
+
+/* =========================================================
+ * APLICACIÓN (Dashboard + Tabla + Filtros + Export)
+ * =======================================================*/
+const App = (() => {
+  let selectedFiles = [];               // Array<File>
+  let unifiedData = [];                 // Array<StdRow>
+  let dataTableInstance = null;
+
+  // Elementos
+  const elFileInput    = document.getElementById('file-input');
+  const elFileList     = document.getElementById('file-list');
+  const btnProcess     = document.getElementById('btn-process');
+  const btnClearFiles  = document.getElementById('btn-clear-files');
+  const statsRecords   = document.getElementById('stats-records');
+
+  // Filtros
+  const fCompany = document.getElementById('filter-company');
+  const fPosition= document.getElementById('filter-position');
+  const fDept    = document.getElementById('filter-dept');
+  const fSector  = document.getElementById('filter-sector');
+  const fCity    = document.getElementById('filter-city');
+  const fFaculty = document.getElementById('filter-faculty');
+  const fSearch  = document.getElementById('filter-search');
+  const btnApply = document.getElementById('btn-apply-filters');
+  const btnClear = document.getElementById('btn-clear-filters');
+  const btnExport= document.getElementById('btn-export');
+
+  const tableEl = document.getElementById('employees-table');
+
+  // ================== Inicialización de tabla ==================
+  const initTable = () => {
+    if (dataTableInstance) {
+      dataTableInstance.destroy();
+      tableEl.innerHTML = '';
+    }
+
+    const cols = [
+      { title: 'Empresa', data: 'company' },
+      { title: 'Nombre completo', data: 'full_name' },
+      { title: 'Cédula', data: 'id_number' },
+      { title: 'Dirección', data: 'address' },
+      { title: 'Teléfono', data: 'phone' },
+      { title: 'Correo', data: 'email' },
+      { title: 'Ciudad', data: 'city' },
+    ];
+
+    dataTableInstance = new $.fn.dataTable.Api($(tableEl).DataTable({
+      data: unifiedData,
+      columns: cols,
+      responsive: true,
+      searching: false,
+      paging: false,
+      info: false,
+      language: {
+        decimal: "",
+        emptyTable: "No hay datos disponibles",
+        info: "Mostrando _START_ a _END_ de _TOTAL_",
+        infoFiltered: "(filtrado de _MAX_ en total)",
+        thousands: ",",
+        lengthMenu: "Mostrar _MENU_",
+        loadingRecords: "Cargando...",
+        processing: "Procesando...",
+        search: "Buscar:",
+        zeroRecords: "No se encontraron registros",
+        paginate: { first:"Primero", last:"Último", next:"Siguiente", previous:"Anterior" },
+        aria: { sortAscending: ": activar ascendente", sortDescending: ": activar descendente" }
+      }
+    }));
+
+    updateStats();
+  };
+
+  const updateStats = () => {
+    statsRecords.textContent = `${unifiedData.length} registros`;
+  };
+
+  // ================== Manejo de archivos ==================
+  const renderFileList = () => {
+    elFileList.innerHTML = '';
+    if (!selectedFiles.length) {
+      elFileList.innerHTML = '<li class="text-gray-500">No hay archivos seleccionados.</li>';
+      return;
+    }
+    selectedFiles.forEach((f, i) => {
+      const li = document.createElement('li');
+      li.className = 'flex items-center justify-between p-2 border rounded';
+      li.innerHTML = `
+        <div class="flex items-center gap-3">
+          <i class="fa-solid fa-file text-gray-500"></i>
+          <div>
+            <div class="font-medium truncate-1">${f.name}</div>
+            <div class="text-xs text-gray-500">${(f.size/1024).toFixed(1)} KB</div>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <span class="badge badge-orange">Pendiente</span>
+          <button class="btn btn-danger text-xs px-2 py-1" data-remove="${i}"><i class="fa-solid fa-xmark"></i> Quitar</button>
+        </div>`;
+      elFileList.appendChild(li);
+    });
+
+    elFileList.querySelectorAll('[data-remove]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = Number(e.currentTarget.dataset.remove);
+        selectedFiles.splice(idx, 1);
+        renderFileList();
+      });
+    });
+  };
+
+  const addFilesFromInput = () => {
+    const incoming = Array.from(elFileInput.files || []);
+    const key = (f) => `${f.name}|${f.size}`;
+    const have = new Set(selectedFiles.map(key));
+    incoming.forEach(f => { if (!have.has(key(f))) selectedFiles.push(f); });
+    elFileInput.value = '';
+    renderFileList();
+  };
+
+  const clearFiles = () => {
+    selectedFiles = [];
+    renderFileList();
+  };
+
+  // ================== Procesamiento principal (ACTUALIZADO) ==================
+  const process = async () => {
+    if (!selectedFiles.length) return alert('Selecciona al menos un archivo.');
+
+    btnProcess.disabled = true;
+    btnProcess.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+
+    const errors = [];
+    const success = [];
+    const allRows = [];
+    const progress = (done, total) => {
+      const lis = Array.from(elFileList.children);
+      if (lis[done-1]) {
+        const badge = lis[done-1].querySelector('.badge');
+        if (badge) { badge.className = 'badge badge-green'; badge.innerHTML = '<i class="fa-solid fa-check"></i> Listo'; }
+      }
+    };
+
+    try {
+      let done = 0;
+      for (const file of selectedFiles) {
+        try {
+          // Procesa cada archivo por separado (lee todas las hojas). Devuelve estandarizado y deduplicado (por archivo).
+          const rows = await DataProc.processFiles([file]);
+          allRows.push(...rows);
+          success.push(file.name);
+        } catch (e) {
+          console.error(e);
+          errors.push(e._file ? `${e._file}: ${e.message}` : `${file.name}: ${e.message || e}`);
+        } finally {
+          done++;
+          progress(done, selectedFiles.length);
+          await Utils.sleep(10);
+        }
+      }
+
+      if (errors.length && !allRows.length) {
+        alert("Se produjeron errores al procesar:\n\n" + errors.join('\n'));
+        return;
+      }
+
+      if (errors.length) {
+        alert("Algunos archivos tuvieron problemas pero se procesaron otros:\n\n" + errors.join('\n'));
+      }
+
+      // Deduplicado final entre TODOS los archivos
+      unifiedData = Utils.uniqueBy(allRows, r =>
+        [Utils.norm(r.full_name), Utils.norm(r.email || r.phone || r.id_number || ''), Utils.norm(r.company)].join('|')
+      );
+      
+      // Guardado automático como JSON
+			Utils.downloadJSON(unifiedData, 'bases_utp.json');
+
+
+      initTable();
+      App.syncFilterOptions();
+      document.getElementById('stats-records').textContent = `${unifiedData.length} registros`;
+      alert('Datos cargados y unificados con éxito.');
+      clearFiles();
+
+    } finally {
+      btnProcess.disabled = false;
+      btnProcess.innerHTML = '<i class="fa-solid fa-gears"></i> Procesar';
+    }
+  };
+
+  // ================== Filtros ==================
+  const uniqueValues = (key) => {
+    const set = new Set();
+    for (const r of unifiedData) {
+      const val = (r[key] ?? '').toString().trim();
+      if (val) set.add(val);
+    }
+    return Array.from(set).sort((a,b) => a.localeCompare(b, 'es'));
+  };
+
+  const syncFilterOptions = () => {
+    const fill = (el, list, all='Todos') => {
+      const cur = el.value;
+      el.innerHTML = `<option value="">${all}</option>` + list.map(v => `<option value="${v}">${v}</option>`).join('');
+      if (list.includes(cur)) el.value = cur;
+    };
+
+    fill(fCompany, uniqueValues('company'), 'Todas');
+    fill(fPosition, uniqueValues('position'), 'Todos');
+    fill(fDept, uniqueValues('dept'), 'Todos');
+    fill(fSector, uniqueValues('sector'), 'Todos');
+    fill(fCity, uniqueValues('city'), 'Todas');
+    fill(fFaculty, uniqueValues('faculty'), 'Todos');
+  };
+
+  const applyFilters = () => {
+    if (!dataTableInstance) return;
+
+    const company = fCompany.value;
+    const position= fPosition.value;
+    const dept    = fDept.value;
+    const sector  = fSector.value;
+    const city    = fCity.value;
+    const faculty = fFaculty.value;
+    const q       = Utils.norm(fSearch.value);
+
+    const filtered = unifiedData.filter(r => {
+      const matchCompany = !company || r.company === company;
+      const matchPos     = !position || r.position === position;
+      const matchDept    = !dept || r.dept === dept;
+      const matchSector  = !sector || r.sector === sector;
+      const matchCity    = !city || r.city === city;
+      const matchFaculty = !faculty || r.faculty === faculty;
+
+      let matchSearch = true;
+      if (q) {
+        const haystack = [
+          r.company, r.full_name, r.address, r.phone, r.email,
+          r.city, r.position, r.sector, r.dept, r.faculty, r.id_number
+        ].map(v => Utils.norm(v)).join(' | ');
+        matchSearch = haystack.includes(q);
+      }
+
+      return matchCompany && matchPos && matchDept && matchSector && matchCity && matchFaculty && matchSearch;
+    });
+
+    dataTableInstance.clear();
+    dataTableInstance.rows.add(filtered).draw();
+    document.getElementById('stats-records').textContent = `${filtered.length} registros (de ${unifiedData.length})`;
+  };
+
+  const clearFilters = () => {
+    [fCompany,fPosition,fDept,fSector,fCity,fFaculty].forEach(el => el.value = '');
+    fSearch.value = '';
+    applyFilters();
+  };
+
+  // ================== Export ==================
+  const exportExcel = () => {
+    if (!dataTableInstance) return alert('No hay datos.');
+    const current = dataTableInstance.rows({search:'applied'}).data().toArray();
+    if (!current.length) return alert('No hay datos visibles para exportar.');
+
+    const rows = current.map(r => ({
+      Empresa: r.company || '',
+      'Nombre completo': r.full_name || '',
+      'Cédula': r.id_number || '',
+      Dirección: r.address || '',
+      Teléfono: r.phone || '',
+      Correo: r.email || '',
+      Ciudad: r.city || ''
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Empleados Filtrados');
+    XLSX.writeFile(wb, 'empleados_filtrados.xlsx');
+  };
+
+  // ================== Externo ==================
+  const initTablePublic = () => initTable();
+
+  // ================== Event Listeners ==================
+  const attach = () => {
+    // Auth: export/import usuarios
+    document.getElementById('export-users-btn').addEventListener('click', () => {
+      const db = UserStore.exportJSON();
+      Utils.downloadJSON(db, 'usuarios.json');
+    });
+    // Importador de datos unificados desde JSON
+document.getElementById('import-data-json').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (!Array.isArray(data)) throw new Error('El archivo no tiene un formato válido');
+    unifiedData = data;
+    App.initTable();
+    App.syncFilterOptions();
+    alert('Datos importados correctamente.');
+  } catch (err) {
+    console.error(err);
+    alert('No se pudo importar el archivo. Verifica que sea un .json generado por esta app.');
+  } finally {
+    e.target.value = '';
+  }
+});
+
+
+    // Archivos
+    elFileInput.addEventListener('change', addFilesFromInput);
+    btnClearFiles.addEventListener('click', clearFiles);
+    btnProcess.addEventListener('click', process);
+
+    // Drag&Drop
+    const dropZone = elFileInput.closest('.border-dashed');
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('bg-amber-50'); });
+    dropZone.addEventListener('dragleave', e => { dropZone.classList.remove('bg-amber-50'); });
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('bg-amber-50');
+      const incoming = Array.from(e.dataTransfer.files || []);
+      const key = f => `${f.name}|${f.size}`;
+      const have = new Set(selectedFiles.map(key));
+      incoming.forEach(f => { if (!have.has(key(f))) selectedFiles.push(f); });
+      renderFileList();
+    });
+
+    // Filtros
+    btnApply.addEventListener('click', applyFilters);
+    btnClear.addEventListener('click', clearFilters);
+    fSearch.addEventListener('keyup', (e) => {
+      if (e.key === 'Enter') applyFilters();
+    });
+  };
+
+  // Exponer selectedFiles para depuración (opcional)
+  Object.defineProperty(window, 'selectedFiles', { get: () => selectedFiles });
+
+  return { attach, initTable: initTablePublic, syncFilterOptions, applyFilters, exportExcel };
+})();
+
+/* =========================================================
+ * HELPERS de UI ya existentes
+ * =======================================================*/
+function togglePassword(inputId, iconId) {
+  const input = document.getElementById(inputId);
+  const icon = document.getElementById(iconId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    icon.classList.replace('fa-eye', 'fa-eye-slash');
+  } else {
+    input.type = 'password';
+    icon.classList.replace('fa-eye-slash', 'fa-eye');
+  }
+}
+
+/* =========================================================
+ * INICIO
+ * =======================================================*/
+document.addEventListener('DOMContentLoaded', () => {
+  // Pestaña por defecto
+  AuthUI.show('login');
+  AuthUI.checkRecaptchaAvailability();
+  
+  // Usuarios por defecto
+const defaultUsers = [
+  { email: 'egresados@utp.edu.co', password: '123456' },
+  { email: 'diregresados@utp.edu.co', password: '123456' }
+];
+
+for (const u of defaultUsers) {
+  if (!UserStore.hasUser(u.email)) {
+    UserStore.setUser(u.email, { email: u.email, password: u.password, createdAt: new Date().toISOString() });
+  }
+}
+
+
+  // Si había una sesión previa
+  const current = sessionStorage.getItem('aseutp_current');
+  if (current && UserStore.getUser(current)) {
+    Auth.onLogin(current);
+  }
+
+  // Dashboard listeners
+  App.attach();
+
+  // Hook para que tras initTable sincronicemos opciones de filtros
+  const origInit = App.initTable;
+  App.initTable = function(){
+    origInit();
+    App.syncFilterOptions();
+  };
+
+  // Botón export (tabla)
+  document.getElementById('btn-export').addEventListener('click', App.exportExcel);
+});
+  </script>
+
+</body>
+</html>
