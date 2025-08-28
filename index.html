@@ -21,16 +21,6 @@
 
   <!-- FileSaver (para exportar JSON si lo prefieres) -->
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-  
-  <!-- Supabase -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-<script>
-  const SUPABASE_URL = 'https://opaahbbpzchruwqahykg.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wYWFoYmJwemNocnV3cWFoeWtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYzODk3NDYsImV4cCI6MjA3MTk2NTc0Nn0.LTEf1Gkxif0PiiXx88dF_wULUV8u69C2HHg3lZ8696Y';
-
-  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-</script>
-
 
 
   <style>
@@ -80,7 +70,7 @@
           <button id="tab-change" class="chip" onclick="AuthUI.show('change')">Cambiar contraseña</button>
           <button id="tab-recovery" class="chip" onclick="AuthUI.show('recovery')">Olvidé mi contraseña</button>
           <span class="flex-1"></span>
-          <label class="btn btn-light cursor-pointer hidden">
+          <label class="btn btn-light cursor-pointer">
   					<input id="import-data-json" type="file" class="hidden" accept=".json">
  	 						<i class="fa-solid fa-file-import"></i> Importar datos
 					</label>
@@ -761,42 +751,6 @@ const App = (() => {
   let selectedFiles = [];               // Array<File>
   let unifiedData = [];                 // Array<StdRow>
   let dataTableInstance = null;
-  
-  // Guardar en Supabase
-const saveToSupabase = async () => {
-  const { error } = await supabase.from('datos_unificados').insert([
-    { data: unifiedData }
-  ]);
-  if (error) {
-    console.error('Error al guardar en Supabase:', error);
-    alert('Error al guardar en Supabase.');
-  } else {
-    console.log('Datos guardados en Supabase');
-  }
-};
-
-// Cargar de Supabase
-const loadFromSupabase = async () => {
-  const { data, error } = await supabase
-    .from('datos_unificados')
-    .select('data')
-    .order('created_at', { ascending: false })
-    .limit(1);
-
-  if (error) {
-    console.error('Error al cargar de Supabase:', error);
-    alert('No se pudieron cargar los datos desde la nube.');
-    return;
-  }
-
-  if (data && data.length > 0) {
-    unifiedData = data[0].data;
-    initTable();
-    syncFilterOptions();
-    alert('Datos cargados desde la nube.');
-  }
-};
-
 
   // Elementos
   const elFileInput    = document.getElementById('file-input');
@@ -964,7 +918,8 @@ const loadFromSupabase = async () => {
         [Utils.norm(r.full_name), Utils.norm(r.email || r.phone || r.id_number || ''), Utils.norm(r.company)].join('|')
       );
       
-      await saveToSupabase();
+      // Guardado automático como JSON
+			Utils.downloadJSON(unifiedData, 'bases_utp.json');
 
 
       initTable();
@@ -1176,8 +1131,6 @@ for (const u of defaultUsers) {
 
   // Dashboard listeners
   App.attach();
-  loadFromSupabase();
-
 
   // Hook para que tras initTable sincronicemos opciones de filtros
   const origInit = App.initTable;
